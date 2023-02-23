@@ -11,29 +11,49 @@ int octave = 4;
 int notePlacementInOctave = 9;
 int noteMidi = 60;
 
-bool octaveUpPressed = false;
-bool octaveDownPressed = false;
-bool noteButtonPressed = false;
-bool enTrainDeJouerUneNote = false;
+//gestion boutons
+bool noteButtonDefinitelyPressed = false; 
+bool octaveUpButtonDefinitelyPressed = false;
+bool octaveDownButtonDefinitelyPressed = false;
 
+bool currentNoteButtonState;
+bool currentOctaveUpButtonState;
+//bool currentOctaveDownButtonState;
+
+bool lastNoteButtonState = false;
+bool lastOctaveUpButtonState = false;
+//bool lastOctaveDownButtonState = false;
+
+unsigned long timeOfLastNoteButtonDebounce = 0;
+unsigned long timeOfLastOctaveUpButtonDebounce = 0;
+
+
+
+//volume
+unsigned long tpsDepuisLecturePotentio = 0;
 float oldGain;
 float currentGain;
 
+//midi to frequency
 float mtof(float note){
   return pow(2.0,(note-69.0)/12.0)*440.0;
 }
 
+
+//to midi
 int midiNote(int octave, int distanceDo) {
   return (octave+1)*12+distanceDo;
 }
 
+//communication Faust
 void jouerNote(int note){
-  faustSynth.setParamValue("gate",0);
+  faustSynth.setParamValue("gate1",0);
   delay(10);
-  faustSynth.setParamValue("frequence",mtof(note));
-  faustSynth.setParamValue("gate",1);
+  faustSynth.setParamValue("frequence1",mtof(note));
+  faustSynth.setParamValue("gate1",1);
   Serial.println("La note a bien été jouée");
 }
+
 
 void setup() {
   pinMode(0, INPUT);
@@ -46,50 +66,71 @@ void setup() {
 }
 
 void loop() {
+  currentNoteButtonState = digitalRead(0);
+  currentOctaveUpButtonState = digitalRead(1);
+  
 
-  //gestion bouton note
-  if (digitalRead(0) && !noteButtonPressed) { // button is pressed
-    noteButtonPressed = true;
-    notePlacementInOctave = (notePlacementInOctave+1)%12;
-    noteMidi = midiNote(octave,notePlacementInOctave);
-    Serial.print("\n");
-    Serial.print("Note pressée : ");
-    Serial.print(noteMidi);
-    jouerNote(noteMidi);
-  }
-  else if (!digitalRead(0) && noteButtonPressed) { //button is released
-    noteButtonPressed = false;
-  }
 
-  //gestion bouton octave up
-  if (digitalRead(1) && !octaveUpPressed) { // button is pressed
-    octaveUpPressed = true;
-    octave += 1;
-    Serial.print("\n");
-    Serial.print("Octave up : ");
-    Serial.print(octave);
+  //gestion bouton note 
+  if (currentNoteButtonState != lastNoteButtonState) {
+    timeOfLastNoteButtonDebounce = millis();
   }
-  else if (!digitalRead(1) && octaveUpPressed) { //button is released
-    octaveUpPressed = false;
+  if ((millis() - timeOfLastNoteButtonDebounce) > 50) {
+    if (currentNoteButtonState != noteButtonDefinitelyPressed) {
+      noteButtonDefinitelyPressed = currentNoteButtonState;
+
+      //jouer note quand le bouton passe de assurément libre à assurément appuyé
+      if (noteButtonDefinitelyPressed) {
+        notePlacementInOctave = (notePlacementInOctave+1)%12;
+        noteMidi = midiNote(octave,notePlacementInOctave);
+        Serial.print("\n");
+        Serial.print("Note pressée : ");
+        Serial.print(noteMidi);
+        jouerNote(noteMidi);
+      }
+    }
   }
 
-//  //gestion bouton octave down
-//  if (digitalRead(2) && !octaveDownPressed) { // button is pressed
-//    octaveDownPressed = true;
-//    octave -= 1;
-//    Serial.println("Octave down " + octave);
-//  }
-//  else if (!digitalRead(2) && octaveDownPressed) { //button is released
-//    octaveDownPressed = false;
-//  }
 
-  oldGain = currentGain;
-  currentGain = analogRead(A0)/1023.0;
-  if (abs(oldGain-currentGain) > 0.05) {
-    faustSynth.setParamValue("gain",currentGain);
-    Serial.print("\n");
-    Serial.print("New gain :");
-    Serial.print(currentGain);
+
+  //gestion bouton octave up 
+  if (currentOctaveUpButtonState != lastOctaveUpButtonState) {
+    timeOfLastOctaveUpButtonDebounce = millis();
   }
-  delay(150);
+  if ((millis() - timeOfLastOctaveUpButtonDebounce) > 50) {
+    if (currentOctaveUpButtonState != octaveUpButtonDefinitelyPressed) {
+      octaveUpButtonDefinitelyPressed = currentOctaveUpButtonState;
+
+      //jouer note quand le bouton passe de assurément libre à assurément appuyé
+      if (octaveUpButtonDefinitelyPressed) {
+        octave += 1;
+        Serial.print("\n");
+        Serial.print("Octave up : ");
+        Serial.print(octave);
+      }
+    }
+  }
+
+
+
+
+
+  //gestion du volume
+  tpsDepuisLecturePotentio += millis() - tpsDepuisLecturePotentio;
+  if (tpsDepuisLecturePotentio > 200) {
+    oldGain = currentGain;
+    currentGain = analogRead(A0) / 1023.0;
+    if (abs(oldGain - currentGain) > 0.05) {
+      faustSynth.setParamValue("gain", currentGain);
+      Serial.print("\n");
+      Serial.print("New gain :");
+      Serial.print(currentGain);
+    }
+  }
+
+
+
+  lastNoteButtonState = currentNoteButtonState;
+  lastOctaveUpButtonState = currentOctaveUpButtonState;
+
 }
