@@ -44,6 +44,11 @@ float currentGain;
 
 
 int octave = 2;
+String synthOrSample = "synth";
+int whichSynth = 0;
+int whichSample = 0;
+int nombreSynths = 1;
+int nombreSamples = 1;
 
 //changer d'octave en restant dans les bornes
 void changeOctave(int changement){
@@ -71,8 +76,12 @@ std::string Stos(String myString){
   return std::string(myString.c_str());
 }
 
-//communication Faust A REFAIRE
-void jouerNote(int octave, int distanceDo){
+
+
+
+
+//pour l'instant communication Faust : pour l'instant 1 seul instrument, il faudra adapter cette fonction pour qu'elle change d'action en fct de l'instrument
+void jouerNote(int octave, int distanceDo, String ){
   int note = midiNote(octave, distanceDo);
   String variableFaustGate = "gate" + String(distanceDo);
   String variableFaustFreq = "frequence" + String(distanceDo);
@@ -101,9 +110,9 @@ void setup() {
   Keyboard.begin();
   
 
-//  for(int i=0;i<12;i++){
-//    timeLastKeyPresses[i] = 1000; //l'infini
-//  }
+  for(int i=0;i<12;i++){
+    timeLastKeyPresses[i] = 1000; //l'infini
+  }
 }
 
 
@@ -154,45 +163,55 @@ void loop() {
     }
   }
 
-//  //gestion bouton note  NON maintenant c'est le bouton pour changer de synth
-//  if (currentSynthButtonState != lastSynthButtonState) {
-//    timeOfLastSynthButtonDebounce = currentTime;
-//  }
-//  if ((currentTime - timeOfLastSynthButtonDebounce) > 50) {
-//    if (currentSynthButtonState != synthButtonDefinitelyPressed) {
-//      synthButtonDefinitelyPressed = currentSynthButtonState;
-//
-//      //jouer note quand le bouton passe de assurément libre à assurément appuyé
-//      if (synthButtonDefinitelyPressed) {
-//        notePlacementInOctave = (notePlacementInOctave+1)%12;
-//        noteMidi = midiNote(octave,notePlacementInOctave);
-//        Serial.print("\n");
-//        Serial.print("Note pressée : ");
-//        Serial.print(noteMidi);
-//        jouerNote(noteMidi);
-//      }
-//    }
-//  }
+  //passer au synth suivant
+  if (currentSynthButtonState != lastSynthButtonState) {
+    timeOfLastSynthButtonDebounce = currentTime;
+  }
+  if ((currentTime - timeOfLastSynthButtonDebounce) > 50) {
+    if (currentSynthButtonState != synthButtonDefinitelyPressed) {
+      synthButtonDefinitelyPressed = currentSynthButtonState;
+
+      //faire l'action quand le bouton passe de assurément libre à assurément appuyé
+      if (synthButtonDefinitelyPressed) {
+        if (synthOrSample == "sample") {
+          synthOrSample = "synth";
+        }
+        whichSynth += 1;
+        if (whichSynth > nombreSynths - 1){
+          whichSynth = 0;
+        }
+        Serial.print("\n");
+        Serial.print("Synth sélectionné n°: ");*
+        Serial.print(whichSynth);
+      }
+    }
+  }
 
 
 
-//  //gestion bouton octave up NON maintenant c'est le bouton pour changer de sample
-//  if (currentSampleButtonState != lastSampleButtonState) {
-//    timeOfLastSampleButtonDebounce = currentTime;
-//  }
-//  if ((currentTime - timeOfLastSampleButtonDebounce) > 50) {
-//    if (currentSampleButtonState != sampleButtonDefinitelyPressed) {
-//      sampleButtonDefinitelyPressed = currentSampleButtonState;
-//
-//      //jouer note quand le bouton passe de assurément libre à assurément appuyé
-//      if (sampleButtonDefinitelyPressed) {
-//        octave += 1;
-//        Serial.print("\n");
-//        Serial.print("Octave up : ");
-//        Serial.print(octave);
-//      }
-//    }
-//  }
+  //gestion bouton octave up NON maintenant c'est le bouton pour changer de sample
+  if (currentSampleButtonState != lastSampleButtonState) {
+    timeOfLastSampleButtonDebounce = currentTime;
+  }
+  if ((currentTime - timeOfLastSampleButtonDebounce) > 50) {
+    if (currentSampleButtonState != sampleButtonDefinitelyPressed) {
+      sampleButtonDefinitelyPressed = currentSampleButtonState;
+
+      //faire l'action quand le bouton passe de assurément libre à assurément appuyé
+      if (sampleButtonDefinitelyPressed) {
+        if (synthOrSample == "synth") {
+          synthOrSample = "sample";
+        }
+        whichSample += 1;
+        if (whichSample > nombreSamples - 1){
+          whichSample = 0;
+        }
+        Serial.print("\n");
+        Serial.print("Sample sélectionné n°: ");*
+        Serial.print(whichSample);
+      }
+    }
+  }
 
 
 
