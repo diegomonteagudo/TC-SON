@@ -3,18 +3,28 @@
 #include <Wire.h>
 #include "TestSynth.h"
 #include <string.h>
+#include <SPI.h>
+#include <SD.h>
+#include <SerialFlash.h>
+
+#define SDCARD_CS_PIN    10
+#define SDCARD_MOSI_PIN  7
+#define SDCARD_SCK_PIN   14
 
 TestSynth faustSynth;
+AudioPlaySdWav playSdWav1;
 AudioOutputI2S out;
 AudioControlSGTL5000 audioShield;
-AudioConnection patchCord0(faustSynth,0,out,0);
-AudioConnection patchCord1(faustSynth,0,out,1);
-
-int testInstrument = 0;
+AudioControlSGTL5000 sgtl5000_1;
+AudioConnection patchCord0(playSdWav1,0,faustSynth,0);
+AudioConnection patchCord1(playSdWav1,1,faustSynth,1);
+AudioConnection patchCord2(faustSynth,0,out,0);
+AudioConnection patchCord3(faustSynth,1,out,1);
 
 const int KEYBOARD_REPEAT_DELAY = 250; //délai entre première et deuxième entrée lorsqu'on reste appuyé (dépend du clavier)
 const int REPEAT_DELAY_RANGE = 5; //tolérance
 const int KEYBOARD_MIN_DELAY = 100; //délai minimal général
+const int PERSISTENT_SYNTH_SUSTAIN = 500; //combien de temps maintenir une touche dans un synthé persistent
 
 const String notesNamesEN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 const String notesNamesFR[12] = {"Do", "Do#", "Ré", "Ré#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"};
@@ -24,10 +34,15 @@ const bool conventionFrancaise = true;
 const char octaveUpKey = 'b';
 const char octaveDownKey = 'v';
 
-//instruments
-//String nomsSynths = ["harpe", "marimba"];
+//synths
 const int nombreSynths = 1;
-const int nombreSamples = 1;
+String nomsSynths[nombreSynths] = {"harpe"};
+bool synthPersistent[nombreSynths] = {false}; //dans le même ordre que nombreSynths, dire si on peut rester appuyé pour maintenir la note
+bool toucheAllumee[12];
+
+//samples
+const int nombreSamples = 5;
+const String nomsSamples[nombreSamples] = {"Meow_new.WAV", "Woof440_8bit_mono.WAV", "Bam440_8bit_mono.WAV", "Beach440_8bit_mono.WAV", "Xylo440_8bit_mono.WAV"};
 
 //gestion boutons
 bool synthButtonDefinitelyPressed = false; 
@@ -60,9 +75,9 @@ float currentGain;
 
 
 int octave = 2;
-String synthOrSample = "synth";
-int whichSynth = 0;
-int whichSample = 0;
+String synthOrSample = "sample";
+int selectedSynth = 0;
+int selectedSample = 0;
 
 //changer d'octave en restant dans les bornes
 void changeOctave(int changement){
@@ -100,6 +115,11 @@ std::string Stos(String myString){
   return std::string(myString.c_str());
 }
 
+//conversion String -> const char *
+const char* StoConstCharPointer(String myString){
+  return myString.c_str();
+}
+
 //dire si un appui clavier doit effectuer une action ou être ignoré
 bool conditionClavier(int tempsActuel, int tempsDernierAppui){
   int diffTemps = tempsActuel - tempsDernierAppui;
@@ -109,7 +129,7 @@ bool conditionClavier(int tempsActuel, int tempsDernierAppui){
 }
 
 
-//pour l'instant communication Faust : pour l'instant 1 seul instrument, il faudra adapter cette fonction pour qu'elle change d'action en fct de l'instrument
+//pour l'instant communication Faust : pour l'instant 1 seul instrument, il faudra adapter cette fonction
 void jouerNote(int octave, int distanceDo){
   int note = toMidi(octave, distanceDo);
   Serial.print("\n");
@@ -123,6 +143,23 @@ void jouerNote(int octave, int distanceDo){
   delay(10);
   faustSynth.setParamValue(Stos(variableFaustFreq),mtof(note));
   faustSynth.setParamValue(Stos(variableFaustGate),1);
+  
+  if(synthOrSample == "sample"){
+    const char * nomFichierAJouer = StoConstCharPointer(nomsSamples[selectedSample]);
+    playFile(nomFichierAJouer);
+  }
+}
+
+
+//cas des synthés persistents : éteindre la note lorsqu'on appuie plus
+void finirNote(int octave, int distanceDo){
+  int note = toMidi(octave, distanceDo);
+  Serial.print("\n");
+  Serial.print("Fin de la note : ");
+  Serial.print(midiToName(note));
+
+  String variableFaustGate = "gate" + String(distanceDo);
+  faustSynth.setParamValue(Stos(variableFaustGate),0);
 }
 
 
@@ -130,13 +167,30 @@ void jouerNote(int octave, int distanceDo){
 //  if (typeSource==
 //}
 
+void playFile(const char *filename)
+{
+  Serial.print("Sample choisi: ");
+  Serial.println(filename);
 
+  // Start playing the file.  This sketch continues to
+  // run while the file plays.
+  playSdWav1.play(filename);
+
+  // A brief delay for the library read WAV info
+  delay(25);
+
+  // Simply wait for the file to finish playing.
+  
+  
+}
 
 void setup() {
   pinMode(0, INPUT);
   pinMode(1, INPUT);
   //pinMode(2, INPUT);
-  AudioMemory(2);
+  AudioMemory(8);
+  sgtl5000_1.enable();
+  sgtl5000_1.volume(0.5);
   audioShield.enable();
   audioShield.volume(0.5);
   Serial.begin(9600);
@@ -144,9 +198,21 @@ void setup() {
   }
   Keyboard.begin();
   
+  SPI.setMOSI(SDCARD_MOSI_PIN);
+  SPI.setSCK(SDCARD_SCK_PIN);
+  if (!(SD.begin(SDCARD_CS_PIN))) {
+    // stop here, but print a message repetitively
+    while (1) {
+      Serial.println("Unable to access the SD card");
+      delay(500);
+    }
+  }
+
+  //audioShield.inputSelect(SDCARD_CS_PIN);
 
   for(int i=0;i<12;i++){
     timeLastKeyPresses[i] = 1000; //l'infini
+    toucheAllumee[i] = false; //cas des synthés persistents
   }
 }
 
@@ -159,7 +225,7 @@ void loop() {
   bool currentSynthButtonState = digitalRead(0);
   bool currentSampleButtonState = digitalRead(1);
 
-  //gestion notes de musique
+  //gestion notes de musique : entrées clavier
   if (Serial.available()){
     char keyboardChar = Serial.read();
     Keyboard.write(keyboardChar);
@@ -172,46 +238,48 @@ void loop() {
       //touches de notes
       while((trouve == false) && (iterateur < 12)){
         if (keyboardChar == correspondingKeys[iterateur]){
-          if(conditionClavier(currentTime, timeLastKeyPresses[iterateur])){
-            Serial.println("Piouuuu");
+          if(conditionClavier(currentTime, timeLastKeyPresses[iterateur])){ //rien ne change dans le cas d'un synth qui se maintient dans le temps
             jouerNote(octave, iterateur);
           }
           timeLastKeyPresses[iterateur] = currentTime;
           trouve = true;
         }
-        iterateur += 1;
-        Serial.println(iterateur);
       }
       
       if (!trouve) {
         //touches changement d'octave
         if (keyboardChar == octaveUpKey) {
-          if (currentTime - timeLastOctaveUpPress> 100) {
+          if (conditionClavier(currentTime, timeLastOctaveUpPress)) {
             changeOctave(1);
           }
           timeLastOctaveUpPress = currentTime;
         } else if (keyboardChar == octaveDownKey) {
-          if (currentTime - timeLastOctaveDownPress> 100) {
+          if (conditionClavier(currentTime, timeLastOctaveDownPress)) {
             changeOctave(-1);
           }
           timeLastOctaveDownPress = currentTime;
-        } else if (keyboardChar == 'c'){ //test changement d'instrument (temporaire)
-          Serial.println("test changement instrument");
-          if (testInstrument == 0){
-            testInstrument = 1;
-            faustSynth.setParamValue("harpeStatus",0);
-            faustSynth.setParamValue("marimbaStatus",1);
-          } else {
-            testInstrument = 0;
-            faustSynth.setParamValue("harpeStatus",1);
-            faustSynth.setParamValue("marimbaStatus",0);
-          }
+        } else if (keyboardChar == 'c'){
+          Serial.println("test changement sample");
+          selectedSample = (selectedSample+1)%nombreSamples;
         } else {
           Serial.print("test aucune correspondance touche (peut-être retour chariot)");
         }
       }
     }
   }
+
+
+
+  //gestion notes de musiques : éteindre les touches n'étant plus appuyées (dans le cas des synthés persistants)
+  if (synthOrSample == "synth" && synthPersistent[selectedSynth]){
+    for(int i = 0; i<12; i++){
+      if(toucheAllumee[i] == true && timeLastKeyPresses[i] > PERSISTENT_SYNTH_SUSTAIN){
+        finirNote(octave, i);
+        toucheAllumee[i] = false;
+      }
+    }
+  }
+
 
 
   //passer au synth suivant
@@ -227,20 +295,20 @@ void loop() {
         if (synthOrSample == "sample") {
           synthOrSample = "synth";
         }
-        whichSynth += 1;
-        if (whichSynth > nombreSynths - 1){
-          whichSynth = 0;
+        selectedSynth += 1;
+        if (selectedSynth > nombreSynths - 1){
+          selectedSynth = 0;
         }
         Serial.print("\n");
         Serial.print("Synth sélectionné n°: ");
-        Serial.print(whichSynth);
+        Serial.print(selectedSynth);
       }
     }
   }
 
 
 
-  //gestion bouton octave up NON maintenant c'est le bouton pour changer de sample
+  //passer au sample suivant
   if (currentSampleButtonState != lastSampleButtonState) {
     timeOfLastSampleButtonDebounce = currentTime;
   }
@@ -253,13 +321,13 @@ void loop() {
         if (synthOrSample == "synth") {
           synthOrSample = "sample";
         }
-        whichSample += 1;
-        if (whichSample > nombreSamples - 1){
-          whichSample = 0;
+        selectedSample += 1;
+        if (selectedSample > nombreSamples - 1){
+          selectedSample = 0;
         }
         Serial.print("\n");
         Serial.print("Sample sélectionné n°: ");
-        Serial.print(whichSample);
+        Serial.print(selectedSample);
       }
     }
   }
