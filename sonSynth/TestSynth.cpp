@@ -9926,6 +9926,7 @@ class mydsp : public dsp {
 	float fRec34[2];
 	float fRec35[2];
 	FAUSTFLOAT fHslider12;
+	FAUSTFLOAT fHslider13;
 	
  public:
 	
@@ -10016,6 +10017,7 @@ class mydsp : public dsp {
 		fButton11 = FAUSTFLOAT(0.0f);
 		fHslider11 = FAUSTFLOAT(261.63f);
 		fHslider12 = FAUSTFLOAT(1.0f);
+		fHslider13 = FAUSTFLOAT(1.0f);
 	}
 	
 	virtual void instanceClear() {
@@ -10250,6 +10252,7 @@ class mydsp : public dsp {
 		ui_interface->addButton("gate7", &fButton4);
 		ui_interface->addButton("gate8", &fButton3);
 		ui_interface->addButton("gate9", &fButton2);
+		ui_interface->addHorizontalSlider("harpe", &fHslider13, FAUSTFLOAT(1.0f), FAUSTFLOAT(0.0f), FAUSTFLOAT(1.0f), FAUSTFLOAT(1.0f));
 		ui_interface->closeBox();
 	}
 	
@@ -10363,7 +10366,7 @@ class mydsp : public dsp {
 		float fSlow105 = fSlow100 + (-1.0f - fSlow104);
 		int iSlow106 = std::min<int>(1025, std::max<int>(0, iSlow102));
 		float fSlow107 = fSlow104 + (2.0f - fSlow100);
-		float fSlow108 = 0.083333336f * float(fHslider12);
+		float fSlow108 = 0.083333336f * float(fHslider13) * float(fHslider12);
 		for (int i0 = 0; i0 < count; i0 = i0 + 1) {
 			fVec0[0] = fSlow0;
 			iRec2[0] = (iRec2[1] + (iRec2[1] > 0)) * (fSlow0 <= fVec0[1]) + (fSlow0 > fVec0[1]);
@@ -10514,7 +10517,7 @@ class mydsp : public dsp {
 	#define FAUST_COMPILATION_OPIONS "-a /usr/local/share/faust/teensy/teensy.cpp -lang cpp -i -es 1 -mcd 16 -uim -single -ftz 0"
 	#define FAUST_INPUTS 0
 	#define FAUST_OUTPUTS 1
-	#define FAUST_ACTIVES 25
+	#define FAUST_ACTIVES 26
 	#define FAUST_PASSIVES 0
 
 	FAUST_ADDHORIZONTALSLIDER("frequence0", fHslider11, 261.63f, 2e+01f, 6e+03f, 0.1f);
@@ -10542,6 +10545,7 @@ class mydsp : public dsp {
 	FAUST_ADDBUTTON("gate7", fButton4);
 	FAUST_ADDBUTTON("gate8", fButton3);
 	FAUST_ADDBUTTON("gate9", fButton2);
+	FAUST_ADDHORIZONTALSLIDER("harpe", fHslider13, 1.0f, 0.0f, 1.0f, 1.0f);
 
 	#define FAUST_LIST_ACTIVES(p) \
 		p(HORIZONTALSLIDER, frequence0, "frequence0", fHslider11, 261.63f, 2e+01f, 6e+03f, 0.1f) \
@@ -10569,6 +10573,7 @@ class mydsp : public dsp {
 		p(BUTTON, gate7, "gate7", fButton4, 0.0f, 0.0f, 1.0f, 1.0f) \
 		p(BUTTON, gate8, "gate8", fButton3, 0.0f, 0.0f, 1.0f, 1.0f) \
 		p(BUTTON, gate9, "gate9", fButton2, 0.0f, 0.0f, 1.0f, 1.0f) \
+		p(HORIZONTALSLIDER, harpe, "harpe", fHslider13, 1.0f, 0.0f, 1.0f, 1.0f) \
 
 	#define FAUST_LIST_PASSIVES(p) \
 
