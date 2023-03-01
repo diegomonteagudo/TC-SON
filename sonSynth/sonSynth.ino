@@ -100,7 +100,6 @@ const int PERSISTENT_SYNTH_SUSTAIN = 500; //combien de temps maintenir une touch
 const String notesNamesEN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 const String notesNamesFR[12] = {"Do", "Do#", "Ré", "Ré#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"};
 const char correspondingKeys[12] = {'q', 'z', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j'};
-const char correspondingKeysGuitar[32] = {"a", "b" etc};
 const bool conventionFrancaise = true;*
 
 const char octaveUpKey = 'b';
@@ -134,7 +133,6 @@ unsigned long timeOfLastSampleButtonDebounce = 0;
 //bool currentKeysStates[12];
 //bool lastKeysStates[12];
 unsigned long timeLastKeyPresses[12];
-unsigned long timeLastKeyPressesGuitar[12];
 
 //gestion clavier octaves
 unsigned long timeLastOctaveUpPress = 0;
@@ -148,7 +146,7 @@ float currentGain;
 
 
 int octave = 2;
-String synthOrSample = "sample";
+String synthOrSample = "synth";
 int selectedSynth = 0;
 int selectedSample = 0;
 
@@ -257,6 +255,55 @@ void playFile(const char *filename)
   
 }
 
+// --------------------------------------
+         // ** GUITARE ** 
+
+const char correspondingKeysGuitar[20] = {'a', 'q', 'z', 's', 'e', 'd', 'r', 'f', 't', 'g', 'y', 'h','u','j', 'i', 'k', 'o', 'l','p','m'};
+float chords[10] = { Cmajor, Dmajor, Emajor, Fmajor, Gmajor, Amajor, Bmajor, Cminor, Dminor, Eminor }
+unsigned long timeLastGuitarKeyPresses[20];
+
+const int finger_delay = 5;
+const int hand_delay = 220;
+
+void strum_up(const float *chord, float velocity);
+void strum_dn(const float *chord, float velocity);
+
+// Fonction qui fait le son de guitard grattage vers le haut avec accord en paramètre
+void strum_up(const float *chord, float velocity)
+{
+  if (chord[0] > 20.0) string1.noteOn(chord[0], velocity);
+  delay(finger_delay);
+  if (chord[1] > 20.0) string2.noteOn(chord[1], velocity);
+  delay(finger_delay);
+  if (chord[2] > 20.0) string3.noteOn(chord[2], velocity);
+  delay(finger_delay);
+  if (chord[3] > 20.0) string4.noteOn(chord[3], velocity);
+  delay(finger_delay);
+  if (chord[4] > 20.0) string5.noteOn(chord[4], velocity);
+  delay(finger_delay);
+  if (chord[5] > 20.0) string6.noteOn(chord[5], velocity);
+  delay(finger_delay);
+}
+
+// Fonction qui fait le son de guitard grattage vers le bas avec accod en paramètre
+void strum_dn(const float *chord, float velocity)
+{
+  if (chord[5] > 20.0) string1.noteOn(chord[5], velocity);
+  delay(finger_delay);
+  if (chord[4] > 20.0) string2.noteOn(chord[4], velocity);
+  delay(finger_delay);
+  if (chord[3] > 20.0) string3.noteOn(chord[3], velocity);
+  delay(finger_delay);
+  if (chord[2] > 20.0) string4.noteOn(chord[2], velocity);
+  delay(finger_delay);
+  if (chord[1] > 20.0) string5.noteOn(chord[1], velocity);
+  delay(finger_delay);
+  if (chord[0] > 20.0) string6.noteOn(chord[0], velocity);
+  delay(finger_delay);
+}
+
+// --------------------------------------
+
 void setup() {
   pinMode(0, INPUT);
   pinMode(1, INPUT);
@@ -285,6 +332,10 @@ void setup() {
     timeLastKeyPresses[i] = 1000; //l'infini
     toucheAllumee[i] = false; //cas des synthés persistents
   }
+  // Guitar
+  for(int i=0;i<20;i++){
+    timeLastGuitarKeyPresses[i] = 1000; //l'infini
+  }
 }
 
 
@@ -296,59 +347,96 @@ void loop() {
   bool currentSynthButtonState = digitalRead(0);
   bool currentSampleButtonState = digitalRead(1);
 
-  //gestion notes de musique : entrées clavier
-  if (Serial.available()){
-    char keyboardChar = Serial.read();
-    Keyboard.write(keyboardChar);
-    if(keyboardChar != '\n'){
-      Serial.println("Touche appuyée : "+String(keyboardChar));
-  
-      int iterateur = 0;
-      bool trouve = false;
-
-      //touches de notes
-      while((trouve == false) && (iterateur < 12)){
-        if (keyboardChar == correspondingKeys[iterateur]){
-          if(conditionClavier(currentTime, timeLastKeyPresses[iterateur])){ //rien ne change dans le cas d'un synth qui se maintient dans le temps
-            jouerNote(octave, iterateur);
+  if(!(synthOrSample == "synth" && whichSynth == 0))
+  {
+    //gestion notes de musique : entrées clavier
+    if (Serial.available()){
+      char keyboardChar = Serial.read();
+      Keyboard.write(keyboardChar);
+      if(keyboardChar != '\n'){
+        Serial.println("Touche appuyée : "+String(keyboardChar));
+    
+        int iterateur = 0;
+        bool trouve = false;
+    
+        //touches de notes
+        while((trouve == false) && (iterateur < 12)){
+          if (keyboardChar == correspondingKeys[iterateur]){
+            if(conditionClavier(currentTime, timeLastKeyPresses[iterateur])){ //rien ne change dans le cas d'un synth qui se maintient dans le temps
+              jouerNote(octave, iterateur);
+            }
+            timeLastKeyPresses[iterateur] = currentTime;
+            trouve = true;
           }
-          timeLastKeyPresses[iterateur] = currentTime;
-          trouve = true;
         }
-      }
-      
-      if (!trouve) {
-        //touches changement d'octave
-        if (keyboardChar == octaveUpKey) {
-          if (conditionClavier(currentTime, timeLastOctaveUpPress)) {
-            changeOctave(1);
+        
+        if (!trouve) {
+          //touches changement d'octave
+          if (keyboardChar == octaveUpKey) {
+            if (conditionClavier(currentTime, timeLastOctaveUpPress)) {
+              changeOctave(1);
+            }
+            timeLastOctaveUpPress = currentTime;
+          } else if (keyboardChar == octaveDownKey) {
+            if (conditionClavier(currentTime, timeLastOctaveDownPress)) {
+              changeOctave(-1);
+            }
+            timeLastOctaveDownPress = currentTime;
+          } else if (keyboardChar == 'c'){
+            Serial.println("test changement sample");
+            selectedSample = (selectedSample+1)%nombreSamples;
+          } else {
+            Serial.print("test aucune correspondance touche (peut-être retour chariot)");
           }
-          timeLastOctaveUpPress = currentTime;
-        } else if (keyboardChar == octaveDownKey) {
-          if (conditionClavier(currentTime, timeLastOctaveDownPress)) {
-            changeOctave(-1);
-          }
-          timeLastOctaveDownPress = currentTime;
-        } else if (keyboardChar == 'c'){
-          Serial.println("test changement sample");
-          selectedSample = (selectedSample+1)%nombreSamples;
-        } else {
-          Serial.print("test aucune correspondance touche (peut-être retour chariot)");
         }
       }
     }
+    
+    
+    
+      //gestion notes de musiques : éteindre les touches n'étant plus appuyées (dans le cas des synthés persistants)
+      if (synthOrSample == "synth" && synthPersistent[selectedSynth]){
+        for(int i = 0; i<12; i++){
+          if(toucheAllumee[i] == true && timeLastKeyPresses[i] > PERSISTENT_SYNTH_SUSTAIN){
+            finirNote(octave, i);
+          toucheAllumee[i] = false;
+        }
+      }
+    }
+
   }
+  else
+  {
+     //gestion notes de musique : entrées clavier
+    if (Serial.available()){
+      char keyboardChar = Serial.read();
+      Keyboard.write(keyboardChar);
+      if(keyboardChar != '\n'){
+        Serial.println("Touche appuyée : "+String(keyboardChar));
+    
+        int iterateur = 0;
+        bool trouve = false;
+    
+        // Jouer de la Guitare
+        while((trouve == false) && (iterateur < 20)){
+          if (keyboardChar == correspondingKeysGuitar[iterateur]){
+            if(conditionClavier(currentTime, timeLastGuitarKeyPresses[iterateur])){ //rien ne change dans le cas d'un synth qui se maintient dans le temps
 
+                if(iterateur %2 ==0)
+                {
+                  strum_up(chords[iterateur/2], 1.0);
+                }
+                else
+                {
+                  strum_down(chords[(iterateur+1)/2], 1.0)
+                }
 
-
-  //gestion notes de musiques : éteindre les touches n'étant plus appuyées (dans le cas des synthés persistants)
-  if (synthOrSample == "synth" && synthPersistent[selectedSynth]){
-    for(int i = 0; i<12; i++){
-      if(toucheAllumee[i] == true && timeLastKeyPresses[i] > PERSISTENT_SYNTH_SUSTAIN){
-        finirNote(octave, i);
-        toucheAllumee[i] = false;
-      }
-    }
+              
+            }
+            timeLastGuitarKeyPresses[iterateur] = currentTime;
+            trouve = true;
+          }
+        } 
   }
 
 
