@@ -7,19 +7,90 @@
 #include <SD.h>
 #include <SerialFlash.h>
 
+#include "TestSynth.h"
+#include "chords.h"
+
+#include <string.h>
+
 #define SDCARD_CS_PIN    10
 #define SDCARD_MOSI_PIN  7
 #define SDCARD_SCK_PIN   14
 
 TestSynth faustSynth;
-AudioPlaySdWav playSdWav1;
-AudioOutputI2S out;
-AudioControlSGTL5000 audioShield;
-AudioControlSGTL5000 sgtl5000_1;
-AudioConnection patchCord0(playSdWav1,0,faustSynth,0);
-AudioConnection patchCord1(playSdWav1,1,faustSynth,1);
-AudioConnection patchCord2(faustSynth,0,out,0);
-AudioConnection patchCord3(faustSynth,1,out,1);
+AudioSynthKarplusStrong  string1;        //xy=347.09093475341797,120
+AudioSynthKarplusStrong  string2;        //xy=347.0909080505371,167
+AudioSynthKarplusStrong  string3;        //xy=348.09093856811523,214.09090614318848
+AudioSynthKarplusStrong  string5;        //xy=350.09093856811523,307.0908946990967
+AudioPlaySdWav           playSdWav2;     //xy=349.34090423583984,548.8408889770508
+AudioSynthKarplusStrong  string4;        //xy=351.09093856811523,262.09090995788574
+AudioPlaySdWav           playSdWav3; //xy=350.25000953674316,589.8409004211426
+AudioPlaySdWav           playSdWav4; //xy=350.25000953674316,629.8409004211426
+AudioPlaySdWav           playSdWav7; //xy=350.25000953674316,756.8409061431885
+AudioPlaySdWav           playSdWav1;     //xy=351.34092140197754,506.8408946990967
+AudioPlaySdWav           playSdWav8; //xy=350.25000953674316,796.8409061431885
+AudioSynthKarplusStrong  string6;        //xy=352.09093856811523,351.0909090042114
+AudioPlaySdWav           playSdWav5; //xy=351.34092140197754,673.8409004211426
+AudioPlaySdWav           playSdWav6; //xy=351.34092140197754,713.8409004211426
+AudioPlaySdWav           playSdWav11; //xy=354.25,916.8409442901611
+AudioPlaySdWav           playSdWav12; //xy=354.25000953674316,960.8409442901611
+AudioPlaySdWav           playSdWav9; //xy=355.34092140197754,837.8409385681152
+AudioPlaySdWav           playSdWav10; //xy=355.34092140197754,877.8409385681152
+AudioMixer4              mixer5;         //xy=577.1136093139648,505.6818313598633
+AudioMixer4              mixer9; //xy=577.0909423828125,746.3636322021484
+AudioMixer4              mixer6;         //xy=577.8636093139648,585.4318313598633
+AudioMixer4              mixer7;         //xy=577.6136093139648,664.4317512512207
+AudioMixer4              mixer10; //xy=577.8409423828125,826.1136322021484
+AudioMixer4              mixer11; //xy=577.5909423828125,905.1135520935059
+AudioMixer4              mixer1;         //xy=670.0909614562988,173.09093475341797
+AudioMixer4              mixer2;         //xy=813.0909614562988,325.0909061431885
+AudioMixer4              mixer12; //xy=813.0909423828125,726.3636474609375
+AudioMixer4              mixer8; //xy=813.8636016845703,638.4317054748535
+AudioMixer4              mixer3;         //xy=958.0909614562988,422.0909061431885
+AudioOutputI2S           i2s1;           //xy=1145.0909576416016,402.0909061431885
+AudioConnection          patchCord1(string1, 0, mixer1, 0);
+AudioConnection          patchCord2(string2, 0, mixer1, 1);
+AudioConnection          patchCord3(string3, 0, mixer1, 2);
+AudioConnection          patchCord4(string5, 0, mixer2, 1);
+AudioConnection          patchCord5(playSdWav2, 0, mixer5, 2);
+AudioConnection          patchCord6(playSdWav2, 1, mixer5, 3);
+AudioConnection          patchCord7(string4, 0, mixer1, 3);
+AudioConnection          patchCord8(playSdWav3, 0, mixer6, 0);
+AudioConnection          patchCord9(playSdWav3, 1, mixer6, 1);
+AudioConnection          patchCord10(playSdWav4, 0, mixer6, 2);
+AudioConnection          patchCord11(playSdWav4, 1, mixer6, 3);
+AudioConnection          patchCord12(playSdWav7, 0, mixer9, 0);
+AudioConnection          patchCord13(playSdWav7, 1, mixer9, 1);
+AudioConnection          patchCord14(playSdWav1, 0, mixer5, 0);
+AudioConnection          patchCord15(playSdWav1, 1, mixer5, 1);
+AudioConnection          patchCord16(playSdWav8, 0, mixer9, 2);
+AudioConnection          patchCord17(playSdWav8, 1, mixer9, 3);
+AudioConnection          patchCord18(string6, 0, mixer2, 2);
+AudioConnection          patchCord19(playSdWav5, 0, mixer7, 0);
+AudioConnection          patchCord20(playSdWav5, 1, mixer7, 1);
+AudioConnection          patchCord21(playSdWav6, 0, mixer7, 2);
+AudioConnection          patchCord22(playSdWav6, 1, mixer7, 3);
+AudioConnection          patchCord23(playSdWav11, 0, mixer11, 0);
+AudioConnection          patchCord24(playSdWav11, 1, mixer11, 1);
+AudioConnection          patchCord25(playSdWav12, 0, mixer11, 2);
+AudioConnection          patchCord26(playSdWav12, 1, mixer11, 3);
+AudioConnection          patchCord27(playSdWav9, 0, mixer10, 0);
+AudioConnection          patchCord28(playSdWav9, 1, mixer10, 1);
+AudioConnection          patchCord29(playSdWav10, 0, mixer10, 2);
+AudioConnection          patchCord30(playSdWav10, 1, mixer10, 3);
+AudioConnection          patchCord31(faustSynth, 0, mixer3, 1);
+AudioConnection          patchCord32(mixer5, 0, mixer8, 0);
+AudioConnection          patchCord33(mixer9, 0, mixer8, 3);
+AudioConnection          patchCord34(mixer6, 0, mixer8, 1);
+AudioConnection          patchCord35(mixer7, 0, mixer8, 2);
+AudioConnection          patchCord36(mixer10, 0, mixer12, 0);
+AudioConnection          patchCord37(mixer11, 0, mixer12, 1);
+AudioConnection          patchCord38(mixer1, 0, mixer2, 0);
+AudioConnection          patchCord39(mixer2, 0, mixer3, 0);
+AudioConnection          patchCord40(mixer12, 0, mixer3, 3);
+AudioConnection          patchCord41(mixer8, 0, mixer3, 2);
+AudioConnection          patchCord42(mixer3, 0, i2s1, 1);
+AudioConnection          patchCord43(mixer3, 0, i2s1, 0);
+AudioControlSGTL5000     sgtl5000_1;
 
 const int KEYBOARD_REPEAT_DELAY = 250; //délai entre première et deuxième entrée lorsqu'on reste appuyé (dépend du clavier)
 const int REPEAT_DELAY_RANGE = 5; //tolérance
@@ -29,14 +100,15 @@ const int PERSISTENT_SYNTH_SUSTAIN = 500; //combien de temps maintenir une touch
 const String notesNamesEN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 const String notesNamesFR[12] = {"Do", "Do#", "Ré", "Ré#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"};
 const char correspondingKeys[12] = {'q', 'z', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j'};
-const bool conventionFrancaise = true;
+const char correspondingKeysGuitar[32] = {"a", "b" etc};
+const bool conventionFrancaise = true;*
 
 const char octaveUpKey = 'b';
 const char octaveDownKey = 'v';
 
 //synths
 const int nombreSynths = 1;
-String nomsSynths[nombreSynths] = {"harpe"};
+String nomsSynths[nombreSynths] = {"guitar", "harpe"};
 bool synthPersistent[nombreSynths] = {false}; //dans le même ordre que nombreSynths, dire si on peut rester appuyé pour maintenir la note
 bool toucheAllumee[12];
 
@@ -62,6 +134,7 @@ unsigned long timeOfLastSampleButtonDebounce = 0;
 //bool currentKeysStates[12];
 //bool lastKeysStates[12];
 unsigned long timeLastKeyPresses[12];
+unsigned long timeLastKeyPressesGuitar[12];
 
 //gestion clavier octaves
 unsigned long timeLastOctaveUpPress = 0;
@@ -191,8 +264,6 @@ void setup() {
   AudioMemory(8);
   sgtl5000_1.enable();
   sgtl5000_1.volume(0.5);
-  audioShield.enable();
-  audioShield.volume(0.5);
   Serial.begin(9600);
   while (!Serial) {
   }
