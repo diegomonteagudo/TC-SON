@@ -217,7 +217,7 @@ void jouerNote(int octave, int distanceDo){
   
   if(synthOrSample == "sample"){
     const char * nomFichierAJouer = StoConstCharPointer(nomsSamples[selectedSample]);
-    playFile(nomFichierAJouer);
+    playFile1(nomFichierAJouer);
   }
 }
 
@@ -238,7 +238,7 @@ void finirNote(int octave, int distanceDo){
 //  if (typeSource==
 //}
 
-void playFile(const char *filename)
+void playFile1(const char *filename)
 {
   Serial.print("Sample choisi: ");
   Serial.println(filename);
@@ -246,6 +246,23 @@ void playFile(const char *filename)
   // Start playing the file.  This sketch continues to
   // run while the file plays.
   playSdWav1.play(filename);
+
+  // A brief delay for the library read WAV info
+  delay(25);
+
+  // Simply wait for the file to finish playing.
+  
+  
+}
+
+void playFile2(const char *filename)
+{
+  Serial.print("Sample choisi: ");
+  Serial.println(filename);
+
+  // Start playing the file.  This sketch continues to
+  // run while the file plays.
+  playSdWav2.play(filename);
 
   // A brief delay for the library read WAV info
   delay(25);
@@ -266,7 +283,7 @@ void setup() {
   pinMode(0, INPUT);
   pinMode(1, INPUT);
   //pinMode(2, INPUT);
-  AudioMemory(8);
+  AudioMemory(128);
   sgtl5000_1.enable();
   sgtl5000_1.volume(0.5);
   Serial.begin(9600);
@@ -296,13 +313,18 @@ void setup() {
 
 
 void loop() {
+  delay(10000);
   unsigned long currentTime = millis(); //inexact plus on avance dans une itération mais pas grave
   
   bool currentSynthButtonState = digitalRead(0);
   bool currentSampleButtonState = digitalRead(1);
+
+  Serial.println("oui");
   
-  string1.noteOn(Dminor, 1);
-  delay(1000);
+  string1.noteOn(440.0, 1.0);
+  playFile1("Piano/Piano60.WAV");
+  delay(10);
+  playFile2("Piano/Piano72.WAV");
 
   //gestion notes de musique : entrées clavier
   if (Serial.available()){
