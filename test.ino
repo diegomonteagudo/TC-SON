@@ -322,9 +322,9 @@ void loop() {
   Serial.println("oui");
   
   string1.noteOn(440.0, 1.0);
-  playFile1("Piano/Piano60.WAV");
+  playFile1("SON/Piano/Piano_60.wav");
   delay(10);
-  playFile2("Piano/Piano72.WAV");
+  playFile2("SON/Voice/Voice_60.wav");
 
   //gestion notes de musique : entrées clavier
   if (Serial.available()){

@@ -10013,7 +10013,7 @@ class mydsp : public dsp {
 		m->declare("library_path6", "/libraries/filters.lib");
 		m->declare("library_path7", "/libraries/basics.lib");
 		m->declare("library_path8", "/libraries/delays.lib");
-		m->declare("library_path9", "/project/oscillators.lib");
+		m->declare("library_path9", "/libraries/oscillators.lib");
 		m->declare("maths_lib_author", "GRAME");
 		m->declare("maths_lib_copyright", "GRAME");
 		m->declare("maths_lib_license", "LGPL with exception");
@@ -10395,7 +10395,7 @@ class mydsp : public dsp {
 		float fSlow33 = float(fHslider11);
 		float fSlow34 = fConst1 * fSlow33;
 		float fSlow35 = float(fButton11);
-		float fSlow36 = float(fHslider12);
+		float fSlow36 = float(fHslider12) / (fSlow35 + fSlow32 + fSlow29 + fSlow26 + fSlow23 + fSlow20 + fSlow17 + fSlow14 + fSlow11 + fSlow8 + fSlow2 + fSlow5);
 		float fSlow37 = fConst0 / fSlow0;
 		float fSlow38 = fSlow37 + -1.0f;
 		int iSlow39 = int(fSlow38);

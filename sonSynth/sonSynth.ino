@@ -91,12 +91,12 @@ AudioConnection          patchCord41(mixer8, 0, mixer3, 2);
 AudioConnection          patchCord42(mixer3, 0, i2s1, 1);
 AudioConnection          patchCord43(mixer3, 0, i2s1, 0);
 AudioControlSGTL5000     sgtl5000_1;
-AudioPlaySdWav SdWavList[12] = {playSdWav1, playSdWav2, playSdWav3, playSdWav4, playSdWav5, playSdWav6, playSdWav7, playSdWav8, playSdWav9, playSdWav10, playSdWav11, playSdWav12};
 
 const int KEYBOARD_REPEAT_DELAY = 500; //délai entre première et deuxième entrée lorsqu'on reste appuyé (dépend du clavier)
 const int REPEAT_DELAY_RANGE = 5; //tolérance
 const int KEYBOARD_MIN_DELAY = 100; //délai minimal général
 const int PERSISTENT_SYNTH_SUSTAIN = 500; //combien de temps maintenir une touche dans un synthé persistent
+const int DISPLAY_PRESSED_KEY = false;
 
 const String notesNamesEN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 const String notesNamesFR[12] = {"Do", "Do#", "Ré", "Ré#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"};
@@ -113,8 +113,8 @@ bool synthPersistent[nombreSynths] = {false, false, true}; //dans le même ordre
 bool toucheAllumee[12];
 
 //samples
-const int nombreSamples = 6;
-const String nomsSamples[nombreSamples] = {"Piano", "Xylo", "Meow", "Woof", "Bam", "Beach"};
+const int nombreSamples = 2;
+const String nomsSamples[nombreSamples] = {"Piano", "Voice"};
 
 //gestion boutons
 bool synthButtonDefinitelyPressed = false; 
@@ -147,7 +147,7 @@ float currentGain;
 
 
 int octave = 4;
-String typeSelectedInstrument = "synth";
+String typeSelectedInstrument = "sample";
 int selectedSynth = 0;
 int selectedSample = 0;
 
@@ -211,6 +211,7 @@ void jouerNote(int octave, int distanceDo){
   Serial.print("\n");
   Serial.print("Note jouée : ");
   Serial.print(midiToName(note));
+  Serial.print("\n");
   
   if((typeSelectedInstrument == "synth") && (selectedSynth != 0)){
     String variableFaustGate = "gate" + String(distanceDo);
@@ -222,9 +223,50 @@ void jouerNote(int octave, int distanceDo){
     faustSynth.setParamValue(Stos(variableFaustGate),1);
     
   } else if (typeSelectedInstrument == "sample") {
-    String nameFileToPlay = nomsSamples[selectedSample] + "_" + String(note);
-    SdWavList[distanceDo].play(StoConstCharPointer(nameFileToPlay));
-    //delay(20);
+    String nameFileToPlay = "SON/"+nomsSamples[selectedSample]+"/"+nomsSamples[selectedSample] + "_" + String(note)+".wav";
+    switch(distanceDo) {
+      case 0:
+        playSdWav1.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 1:
+        playSdWav2.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 2:
+        playSdWav3.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 3:
+        playSdWav4.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 4:
+        playSdWav5.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 5:
+        playSdWav6.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 6:
+        playSdWav7.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 7:
+        playSdWav8.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 8:
+        playSdWav9.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 9:
+        playSdWav10.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 10:
+        playSdWav11.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      case 11:
+        playSdWav12.play(StoConstCharPointer(nameFileToPlay));
+        break;
+      default:
+        Serial.println("Erreur switch case jouerNote");
+        break;
+      
+    }
+    
   }
 }
 
@@ -232,9 +274,9 @@ void jouerNote(int octave, int distanceDo){
 //cas des synthés persistents : éteindre la note lorsqu'on appuie plus
 void finirNote(int octave, int distanceDo){
   int note = toMidi(octave, distanceDo);
-  Serial.print("\n");
-  Serial.print("Fin de la note : ");
-  Serial.print(midiToName(note));
+  //Serial.print("\n");
+  //Serial.print("Fin de la note : ");
+  //Serial.print(midiToName(note));
 
   String variableFaustGate = "gate" + String(distanceDo);
   faustSynth.setParamValue(Stos(variableFaustGate),0);
@@ -264,6 +306,7 @@ void finirNote(int octave, int distanceDo){
 
 const char correspondingKeysGuitar[20] = {'q', 'a', 'w', 's', 'e', 'd', 'r', 'f', 't', 'g', 'y', 'h','u','j', 'i', 'k', 'o', 'l','p',';'};
 const float* chords[10] = { Cmajor, Dmajor, Emajor, Fmajor, Gmajor, Amajor, Bmajor, Cminor, Dminor, Eminor };
+String chordsName[10] = {"C major", "D major", "E major", "F major", "G major", "A major", "B major", "C minor", "D minor", "E minor"};
 unsigned long timeLastGuitarKeyPresses[20];
 
 const int finger_delay = 5;
@@ -350,7 +393,9 @@ void changeInstrument(String typeNewInstrument){
         faustSynth.setParamValue(Stos(nomsSynths[selectedSynth]),1);
       }
     }
-    Serial.println("Instrument sélectionné : " + nomsSynths[selectedSynth] + " (son synthétique n°" + String(selectedSynth)+")");
+    Serial.print("\n -------------------------------------------\n");
+    Serial.print("Instrument sélectionné : " + nomsSynths[selectedSynth] + " (son synthétique n°" + String(selectedSynth)+")");
+    Serial.print("\n -------------------------------------------\n");
     
   }
 
@@ -372,7 +417,9 @@ void changeInstrument(String typeNewInstrument){
         selectedSample += 1;
       }
     }
-    Serial.println("Instrument sélectionné : " + nomsSamples[selectedSample] + " (sample n°" + String(selectedSample)+")");
+    Serial.print("\n -------------------------------------------\n");
+    Serial.print("Instrument sélectionné : " + nomsSamples[selectedSample] + " (sample n°" + String(selectedSample)+")");
+    Serial.print("\n -------------------------------------------\n");
   }
 
 
@@ -381,6 +428,12 @@ void changeInstrument(String typeNewInstrument){
     strum_up(chords[5], 1.0);
   } else {
     jouerNote(4,9);
+    
+    //malpropre
+    if(selectedIsPersistent()){
+      delay(500);
+      finirNote(4,9);
+    }
   }
 
   
@@ -400,7 +453,7 @@ void setup() {
   //pinMode(2, INPUT);
   AudioMemory(8);
   sgtl5000_1.enable();
-  sgtl5000_1.volume(0.5);
+  sgtl5000_1.volume(0.1);
   Serial.begin(9600);
   while (!Serial) {
   }
@@ -419,12 +472,12 @@ void setup() {
   //audioShield.inputSelect(SDCARD_CS_PIN);
 
   for(int i=0;i<12;i++){
-    timeLastKeyPresses[i] = 1000; //l'infini
+    timeLastKeyPresses[i] = 0;
     toucheAllumee[i] = false; //cas des synthés persistents
   }
   // Guitar
   for(int i=0;i<20;i++){
-    timeLastGuitarKeyPresses[i] = 1000; //l'infini
+    timeLastGuitarKeyPresses[i] = 0;
   }
 }
 
@@ -445,8 +498,10 @@ void loop() {
       char keyboardChar = Serial.read();
       Keyboard.write(keyboardChar);
       if(keyboardChar != '\n'){
-        Serial.println("\n");
-        Serial.println("Touche appuyée : "+String(keyboardChar));
+        if(DISPLAY_PRESSED_KEY){
+          Serial.println("\n");
+          Serial.println("Touche appuyée : "+String(keyboardChar));
+        }
     
         int iterateur = 0;
         bool trouve = false;
@@ -457,6 +512,9 @@ void loop() {
               jouerNote(octave, iterateur);
             }
             timeLastKeyPresses[iterateur] = currentTime;
+            if(selectedIsPersistent()){
+              toucheAllumee[iterateur] = true;
+            }
             trouve = true;
           }
           iterateur += 1;
@@ -474,11 +532,9 @@ void loop() {
               changeOctave(-1);
             }
             timeLastOctaveDownPress = currentTime;
-          } else if (keyboardChar == 'c'){
-            Serial.println("test changement sample");
-            selectedSample = (selectedSample+1)%nombreSamples;
           } else {
-            Serial.print("test aucune correspondance touche (peut-être retour chariot)");
+            Serial.print("\n");
+            //Serial.print("test aucune correspondance touche (peut-être retour chariot)");
           }
         }
       }
@@ -489,7 +545,7 @@ void loop() {
      //gestion notes de musiques : éteindre les touches n'étant plus appuyées (dans le cas des synthés persistants)
      if (selectedIsPersistent()){
         for(int i = 0; i<12; i++){
-          if(toucheAllumee[i] == true && timeLastKeyPresses[i] > PERSISTENT_SYNTH_SUSTAIN){
+          if(toucheAllumee[i] == true && (currentTime - timeLastKeyPresses[i]) > PERSISTENT_SYNTH_SUSTAIN){
             finirNote(octave, i);
             toucheAllumee[i] = false;
           }
@@ -502,7 +558,9 @@ void loop() {
       char keyboardChar = Serial.read();
       Keyboard.write(keyboardChar);
       if(keyboardChar != '\n'){
-        Serial.println("Touche appuyée : "+String(keyboardChar));
+        if(DISPLAY_PRESSED_KEY){
+          Serial.println("Touche appuyée : "+String(keyboardChar));
+        }
     
         int iterateur = 0;
         bool trouve = false;
@@ -515,10 +573,14 @@ void loop() {
                 if(iterateur %2 ==0)
                 {
                   strum_up(chords[iterateur/2], 1.0);
+                  Serial.print("\n");
+                  Serial.print("Accord joué : "+chordsName[iterateur/2]+"(up) \n");
                 }
                 else
                 {
                   strum_dn(chords[(iterateur+1)/2], 1.0);
+                  Serial.print("\n");
+                  Serial.print("Accord joué : "+chordsName[iterateur/2]+"(down) \n");
                 }
 
               
@@ -572,8 +634,8 @@ void loop() {
   if (currentTime - timeLastPotentionReading > 200) {
     oldGain = currentGain;
     currentGain = analogRead(A0) / 1023.0;
-    if (abs(oldGain - currentGain) > 0.05) {
-      faustSynth.setParamValue("gain", currentGain);
+    if (abs(oldGain - currentGain) > 0.03) {
+      sgtl5000_1.volume(currentGain*0.1);
       Serial.print("\n");
       Serial.print("New gain :");
       Serial.print(currentGain);
