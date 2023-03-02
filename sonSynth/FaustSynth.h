@@ -22,8 +22,8 @@
  
  ************************************************************************/
 
-#ifndef faust_TestSynth_h_
-#define faust_TestSynth_h_
+#ifndef faust_FaustSynth_h_
+#define faust_FaustSynth_h_
 
 #include <string>
 
@@ -39,12 +39,12 @@ class MidiUI;
 class teensy_midi;
 #endif
 
-class TestSynth : public AudioStream
+class FaustSynth : public AudioStream
 {
     public:
     
-        TestSynth();
-        ~TestSynth();
+        FaustSynth();
+        ~FaustSynth();
     
         virtual void update(void);
     

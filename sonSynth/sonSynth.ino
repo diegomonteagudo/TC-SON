@@ -1,13 +1,13 @@
 #include <Keyboard.h> 
 #include <Audio.h>
 #include <Wire.h>
-#include "TestSynth.h"
+#include "FaustSynth.h"
 #include <string.h>
 #include <SPI.h>
 #include <SD.h>
 #include <SerialFlash.h>
 
-#include "TestSynth.h"
+#include "FaustSynth.h"
 #include "chords.h"
 
 #include <string.h>
@@ -16,7 +16,7 @@
 #define SDCARD_MOSI_PIN  7
 #define SDCARD_SCK_PIN   14
 
-TestSynth faustSynth;
+FaustSynth faustSynth;
 AudioSynthKarplusStrong  string1;        //xy=347.09093475341797,120
 AudioSynthKarplusStrong  string2;        //xy=347.0909080505371,167
 AudioSynthKarplusStrong  string3;        //xy=348.09093856811523,214.09090614318848
@@ -91,29 +91,30 @@ AudioConnection          patchCord41(mixer8, 0, mixer3, 2);
 AudioConnection          patchCord42(mixer3, 0, i2s1, 1);
 AudioConnection          patchCord43(mixer3, 0, i2s1, 0);
 AudioControlSGTL5000     sgtl5000_1;
+AudioPlaySdWav SdWavList[12] = {playSdWav1, playSdWav2, playSdWav3, playSdWav4, playSdWav5, playSdWav6, playSdWav7, playSdWav8, playSdWav9, playSdWav10, playSdWav11, playSdWav12};
 
-const int KEYBOARD_REPEAT_DELAY = 250; //délai entre première et deuxième entrée lorsqu'on reste appuyé (dépend du clavier)
+const int KEYBOARD_REPEAT_DELAY = 500; //délai entre première et deuxième entrée lorsqu'on reste appuyé (dépend du clavier)
 const int REPEAT_DELAY_RANGE = 5; //tolérance
 const int KEYBOARD_MIN_DELAY = 100; //délai minimal général
 const int PERSISTENT_SYNTH_SUSTAIN = 500; //combien de temps maintenir une touche dans un synthé persistent
 
 const String notesNamesEN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 const String notesNamesFR[12] = {"Do", "Do#", "Ré", "Ré#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"};
-const char correspondingKeys[12] = {'q', 'z', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j'};
-const bool conventionFrancaise = true;*
+const char correspondingKeys[12] = {'a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j'};
+const bool conventionFrancaise = false;
 
 const char octaveUpKey = 'b';
 const char octaveDownKey = 'v';
 
 //synths
-const int nombreSynths = 1;
-String nomsSynths[nombreSynths] = {"guitar", "harpe"};
-bool synthPersistent[nombreSynths] = {false}; //dans le même ordre que nombreSynths, dire si on peut rester appuyé pour maintenir la note
+const int nombreSynths = 3;
+String nomsSynths[nombreSynths] = {"guitare", "harpe", "sine"};
+bool synthPersistent[nombreSynths] = {false, false, true}; //dans le même ordre que nombreSynths, dire si on peut rester appuyé pour maintenir la note
 bool toucheAllumee[12];
 
 //samples
-const int nombreSamples = 5;
-const String nomsSamples[nombreSamples] = {"Meow_new.WAV", "Woof440_8bit_mono.WAV", "Bam440_8bit_mono.WAV", "Beach440_8bit_mono.WAV", "Xylo440_8bit_mono.WAV"};
+const int nombreSamples = 6;
+const String nomsSamples[nombreSamples] = {"Piano", "Xylo", "Meow", "Woof", "Bam", "Beach"};
 
 //gestion boutons
 bool synthButtonDefinitelyPressed = false; 
@@ -145,19 +146,19 @@ float oldGain;
 float currentGain;
 
 
-int octave = 2;
-String synthOrSample = "synth";
+int octave = 4;
+String typeSelectedInstrument = "synth";
 int selectedSynth = 0;
 int selectedSample = 0;
 
 //changer d'octave en restant dans les bornes
 void changeOctave(int changement){
-  if(changement == 1 && octave < 8){
+  if(changement == 1 && octave < 6){
     octave += 1;
-    Serial.println(" /\\ +1 octave /\\ ");
+    Serial.println(" /\\ +1 octave ("+String(octave)+") /\\ ");
   } else if (changement == -1 && octave > 2){
     octave -= 1;
-    Serial.println(" \\/ -1 octave \\/ ");
+    Serial.println(" \\/ -1 octave ("+String(octave)+") \\/ ");
   }
 }
 
@@ -199,6 +200,10 @@ bool conditionClavier(int tempsActuel, int tempsDernierAppui){
   return conditionDelaiMin && conditionPremierDelai;
 }
 
+//dire si l'instrument sélectionné peut maintenir ses notes dans le temps (persistent)
+bool selectedIsPersistent(){
+  return (typeSelectedInstrument == "synth" && synthPersistent[selectedSynth]);
+}
 
 //pour l'instant communication Faust : pour l'instant 1 seul instrument, il faudra adapter cette fonction
 void jouerNote(int octave, int distanceDo){
@@ -207,17 +212,19 @@ void jouerNote(int octave, int distanceDo){
   Serial.print("Note jouée : ");
   Serial.print(midiToName(note));
   
-  String variableFaustGate = "gate" + String(distanceDo);
-  String variableFaustFreq = "frequence" + String(distanceDo);
-  
-  faustSynth.setParamValue(Stos(variableFaustGate),0);
-  delay(10);
-  faustSynth.setParamValue(Stos(variableFaustFreq),mtof(note));
-  faustSynth.setParamValue(Stos(variableFaustGate),1);
-  
-  if(synthOrSample == "sample"){
-    const char * nomFichierAJouer = StoConstCharPointer(nomsSamples[selectedSample]);
-    playFile(nomFichierAJouer);
+  if((typeSelectedInstrument == "synth") && (selectedSynth != 0)){
+    String variableFaustGate = "gate" + String(distanceDo);
+    String variableFaustFreq = "frequence" + String(distanceDo);
+    
+    faustSynth.setParamValue(Stos(variableFaustGate),0);
+    delay(10);
+    faustSynth.setParamValue(Stos(variableFaustFreq),mtof(note));
+    faustSynth.setParamValue(Stos(variableFaustGate),1);
+    
+  } else if (typeSelectedInstrument == "sample") {
+    String nameFileToPlay = nomsSamples[selectedSample] + "_" + String(note);
+    SdWavList[distanceDo].play(StoConstCharPointer(nameFileToPlay));
+    //delay(20);
   }
 }
 
@@ -234,32 +241,29 @@ void finirNote(int octave, int distanceDo){
 }
 
 
-//void changerInstrument(String typeSource, String typeDest, int whichSource, int whichDest){
-//  if (typeSource==
+
+//void playFile(const char *filename)
+//{
+//  Serial.print("Sample choisi: ");
+//  Serial.println(filename);
+//
+//  // Start playing the file.  This sketch continues to
+//  // run while the file plays.
+//  playSdWav1.play(filename);
+//
+//  // A brief delay for the library read WAV info
+//  delay(25);
+//
+//  // Simply wait for the file to finish playing.
+//  
+//  
 //}
-
-void playFile(const char *filename)
-{
-  Serial.print("Sample choisi: ");
-  Serial.println(filename);
-
-  // Start playing the file.  This sketch continues to
-  // run while the file plays.
-  playSdWav1.play(filename);
-
-  // A brief delay for the library read WAV info
-  delay(25);
-
-  // Simply wait for the file to finish playing.
-  
-  
-}
 
 // --------------------------------------
          // ** GUITARE ** 
 
-const char correspondingKeysGuitar[20] = {'a', 'q', 'z', 's', 'e', 'd', 'r', 'f', 't', 'g', 'y', 'h','u','j', 'i', 'k', 'o', 'l','p','m'};
-float chords[10] = { Cmajor, Dmajor, Emajor, Fmajor, Gmajor, Amajor, Bmajor, Cminor, Dminor, Eminor }
+const char correspondingKeysGuitar[20] = {'q', 'a', 'w', 's', 'e', 'd', 'r', 'f', 't', 'g', 'y', 'h','u','j', 'i', 'k', 'o', 'l','p',';'};
+const float* chords[10] = { Cmajor, Dmajor, Emajor, Fmajor, Gmajor, Amajor, Bmajor, Cminor, Dminor, Eminor };
 unsigned long timeLastGuitarKeyPresses[20];
 
 const int finger_delay = 5;
@@ -304,6 +308,92 @@ void strum_dn(const float *chord, float velocity)
 
 // --------------------------------------
 
+void eteindreFaustGates(){
+  for(int i = 0; i<12; i++){
+    String variableFaustGate = "gate" + String(i);
+    faustSynth.setParamValue(Stos(variableFaustGate),0);
+    if(selectedIsPersistent()){
+      toucheAllumee[i] = false;
+    }
+  }
+}
+
+//changer les instruments (en fonction du bouton appuyé)
+//agit directement sur les variables globales
+void changeInstrument(String typeNewInstrument){
+
+  //instrument cible est un synth
+  if(typeNewInstrument == "synth"){
+    //instrument actuel est un synth (=> synth suivant)
+    if(typeSelectedInstrument == "synth"){
+      if(selectedSynth == nombreSynths - 1){
+        selectedSynth = 0;
+      } else {
+        selectedSynth += 1;
+      }
+      
+      //changer aussi dans faust (sauf si guitare)
+      eteindreFaustGates();
+      if(selectedSynth == 0){
+        faustSynth.setParamValue(Stos(nomsSynths[nombreSynths-1]),0);
+      } else if(selectedSynth == 1){
+        faustSynth.setParamValue(Stos(nomsSynths[selectedSynth]),1);
+      } else {
+        faustSynth.setParamValue(Stos(nomsSynths[selectedSynth-1]),0);
+        faustSynth.setParamValue(Stos(nomsSynths[selectedSynth]),1);
+      }
+    
+    //instrument actuel est un sample (=> simplement passer aux synths)
+    } else if(typeSelectedInstrument == "sample") {
+      typeSelectedInstrument = "synth";
+      if(selectedSynth > 0){ //si pas guitare activer faust instrument
+        faustSynth.setParamValue(Stos(nomsSynths[selectedSynth]),1);
+      }
+    }
+    Serial.println("Instrument sélectionné : " + nomsSynths[selectedSynth] + " (son synthétique n°" + String(selectedSynth)+")");
+    
+  }
+
+
+  //instrument cible est un sample
+  if(typeNewInstrument == "sample"){
+    //instrument actuel est un synth (=> simplement passer aux samples)
+    if(typeSelectedInstrument == "synth"){
+      typeSelectedInstrument = "sample";
+      if(selectedSynth > 0){ //si pas guitare activer faust instrument
+        faustSynth.setParamValue(Stos(nomsSynths[selectedSynth]),0);
+      }
+    
+    //instrument actuel est un sample (=> sample suivant)
+    } else if(typeSelectedInstrument == "sample") {
+      if(selectedSample == nombreSamples - 1){
+        selectedSample = 0;
+      } else {
+        selectedSample += 1;
+      }
+    }
+    Serial.println("Instrument sélectionné : " + nomsSamples[selectedSample] + " (sample n°" + String(selectedSample)+")");
+  }
+
+
+  //jouer une note pour s'y retrouver en parcourant les instruments
+  if(typeSelectedInstrument == "synth" && selectedSynth == 0){
+    strum_up(chords[5], 1.0);
+  } else {
+    jouerNote(4,9);
+  }
+
+  
+  
+}
+
+
+
+
+
+
+int loopNumber = 0;
+
 void setup() {
   pinMode(0, INPUT);
   pinMode(1, INPUT);
@@ -342,23 +432,24 @@ void setup() {
 
 
 void loop() {
+  //Serial.print("\n Début loop :");
+  //Serial.println(loopNumber);
   unsigned long currentTime = millis(); //inexact plus on avance dans une itération mais pas grave
   
   bool currentSynthButtonState = digitalRead(0);
   bool currentSampleButtonState = digitalRead(1);
 
-  if(!(synthOrSample == "synth" && whichSynth == 0))
-  {
+  if(!(typeSelectedInstrument == "synth" && selectedSynth == 0)){
     //gestion notes de musique : entrées clavier
     if (Serial.available()){
       char keyboardChar = Serial.read();
       Keyboard.write(keyboardChar);
       if(keyboardChar != '\n'){
+        Serial.println("\n");
         Serial.println("Touche appuyée : "+String(keyboardChar));
     
         int iterateur = 0;
         bool trouve = false;
-    
         //touches de notes
         while((trouve == false) && (iterateur < 12)){
           if (keyboardChar == correspondingKeys[iterateur]){
@@ -368,6 +459,7 @@ void loop() {
             timeLastKeyPresses[iterateur] = currentTime;
             trouve = true;
           }
+          iterateur += 1;
         }
         
         if (!trouve) {
@@ -394,19 +486,17 @@ void loop() {
     
     
     
-      //gestion notes de musiques : éteindre les touches n'étant plus appuyées (dans le cas des synthés persistants)
-      if (synthOrSample == "synth" && synthPersistent[selectedSynth]){
+     //gestion notes de musiques : éteindre les touches n'étant plus appuyées (dans le cas des synthés persistants)
+     if (selectedIsPersistent()){
         for(int i = 0; i<12; i++){
           if(toucheAllumee[i] == true && timeLastKeyPresses[i] > PERSISTENT_SYNTH_SUSTAIN){
             finirNote(octave, i);
-          toucheAllumee[i] = false;
+            toucheAllumee[i] = false;
+          }
         }
       }
-    }
 
-  }
-  else
-  {
+  } else {
      //gestion notes de musique : entrées clavier
     if (Serial.available()){
       char keyboardChar = Serial.read();
@@ -428,7 +518,7 @@ void loop() {
                 }
                 else
                 {
-                  strum_down(chords[(iterateur+1)/2], 1.0)
+                  strum_dn(chords[(iterateur+1)/2], 1.0);
                 }
 
               
@@ -436,7 +526,10 @@ void loop() {
             timeLastGuitarKeyPresses[iterateur] = currentTime;
             trouve = true;
           }
+          iterateur += 1;
         } 
+      }
+    }
   }
 
 
@@ -451,16 +544,7 @@ void loop() {
 
       //faire l'action quand le bouton passe de assurément libre à assurément appuyé
       if (synthButtonDefinitelyPressed) {
-        if (synthOrSample == "sample") {
-          synthOrSample = "synth";
-        }
-        selectedSynth += 1;
-        if (selectedSynth > nombreSynths - 1){
-          selectedSynth = 0;
-        }
-        Serial.print("\n");
-        Serial.print("Synth sélectionné n°: ");
-        Serial.print(selectedSynth);
+          changeInstrument("synth");
       }
     }
   }
@@ -477,21 +561,10 @@ void loop() {
 
       //faire l'action quand le bouton passe de assurément libre à assurément appuyé
       if (sampleButtonDefinitelyPressed) {
-        if (synthOrSample == "synth") {
-          synthOrSample = "sample";
-        }
-        selectedSample += 1;
-        if (selectedSample > nombreSamples - 1){
-          selectedSample = 0;
-        }
-        Serial.print("\n");
-        Serial.print("Sample sélectionné n°: ");
-        Serial.print(selectedSample);
+          changeInstrument("sample");
       }
     }
   }
-
-
 
 
 
@@ -512,5 +585,6 @@ void loop() {
 
   lastSynthButtonState = currentSynthButtonState;
   lastSampleButtonState = currentSampleButtonState;
+  loopNumber += 1;
 
 }
